@@ -1,0 +1,1827 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Block Blast Helper</title>
+  <style>
+    :root {
+      --bg: #f6f2e8;
+      --ink: #20242a;
+      --muted: #66707c;
+      --panel: #ffffff;
+      --line: #d8dce2;
+      --board: #202441;
+      --cell: #252a4a;
+      --filled: #f4b643;
+      --filled-2: #34b35a;
+      --accent: #206a7a;
+      --accent-ink: #ffffff;
+      --danger: #b84a3a;
+      --shadow: 0 18px 40px rgba(31, 38, 52, 0.12);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        linear-gradient(90deg, rgba(32, 106, 122, 0.08), transparent 38%),
+        linear-gradient(180deg, #fbf8f0, var(--bg));
+      min-height: 100vh;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    button {
+      border: 1px solid var(--line);
+      color: var(--ink);
+      background: #fff;
+      border-radius: 7px;
+      min-height: 38px;
+      padding: 0 12px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      transition: border-color 150ms ease, transform 150ms ease, background 150ms ease;
+    }
+
+    button:hover {
+      border-color: #9aa7b4;
+      transform: translateY(-1px);
+    }
+
+    button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--accent-ink);
+      font-weight: 700;
+    }
+
+    button.warn {
+      color: var(--danger);
+      border-color: rgba(184, 74, 58, 0.35);
+    }
+
+    .app {
+      width: min(1180px, calc(100vw - 28px));
+      margin: 0 auto;
+      padding: 20px 0 26px;
+      display: grid;
+      grid-template-columns: minmax(330px, 440px) minmax(320px, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    header {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 42px;
+      gap: 14px;
+    }
+
+    h1 {
+      font-size: clamp(1.25rem, 2.5vw, 2rem);
+      line-height: 1.1;
+      margin: 0;
+      letter-spacing: 0;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .panel {
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid rgba(216, 220, 226, 0.85);
+      box-shadow: var(--shadow);
+      border-radius: 8px;
+      padding: 14px;
+    }
+
+    .board-wrap {
+      display: grid;
+      gap: 12px;
+    }
+
+    .board {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      background: var(--board);
+      border: 8px solid #354b88;
+      border-radius: 8px;
+      padding: 5px;
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 3px;
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
+    }
+
+    .cell {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      border: 0;
+      border-radius: 3px;
+      background: var(--cell);
+      padding: 0;
+      min-height: 0;
+      transform: none;
+      box-shadow: inset 0 0 0 1px rgba(10, 13, 30, 0.36);
+      position: relative;
+    }
+
+    .cell.filled {
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.46), transparent 37%),
+        linear-gradient(180deg, #ffd85d, var(--filled) 64%, #d88b25);
+      box-shadow:
+        inset 0 5px 0 rgba(255, 255, 255, 0.28),
+        inset 0 -7px 0 rgba(130, 83, 25, 0.22);
+    }
+
+    .cell.preview-a {
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.42), transparent 37%),
+        linear-gradient(180deg, #6eea72, #27b956 65%, #168a3d);
+      outline: 3px solid #d9ffd9;
+      outline-offset: -5px;
+    }
+
+    .cell.preview-b {
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.4), transparent 37%),
+        linear-gradient(180deg, #61e7e1, #22aeb7 65%, #147987);
+      outline: 3px solid #d8fffb;
+      outline-offset: -5px;
+    }
+
+    .cell.preview-c {
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.42), transparent 37%),
+        linear-gradient(180deg, #ffb166, #ef7626 65%, #b94b14);
+      outline: 3px solid #ffe3cc;
+      outline-offset: -5px;
+    }
+
+    .cell.preview-a::after,
+    .cell.preview-b::after,
+    .cell.preview-c::after {
+      content: attr(data-step);
+      position: absolute;
+      inset: 50% auto auto 50%;
+      transform: translate(-50%, -50%);
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      background: rgba(0, 0, 0, 0.58);
+      font-weight: 900;
+      font-size: 0.9rem;
+      line-height: 1;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.24);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .stat {
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 10px;
+      min-width: 0;
+      background: #fff;
+    }
+
+    .stat span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.77rem;
+      white-space: nowrap;
+    }
+
+    .stat strong {
+      display: block;
+      margin-top: 2px;
+      font-size: 1.2rem;
+      line-height: 1.15;
+    }
+
+    .side {
+      display: grid;
+      gap: 14px;
+    }
+
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 1rem;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    .piece-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .piece-slot-bar {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .slot-button {
+      min-height: 64px;
+      padding: 7px;
+      display: grid;
+      grid-template-columns: 44px minmax(0, 1fr);
+      gap: 2px;
+      align-items: center;
+      text-align: left;
+    }
+
+    .slot-button.active {
+      border-color: var(--accent);
+      background: rgba(32, 106, 122, 0.08);
+    }
+
+    .slot-button strong {
+      font-size: 0.82rem;
+      line-height: 1.1;
+    }
+
+    .slot-button span {
+      color: var(--muted);
+      font-size: 0.75rem;
+      line-height: 1.15;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .slot-copy {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+    }
+
+    .piece-slot-thumb {
+      width: 42px;
+      height: 42px;
+      display: block;
+      object-fit: contain;
+    }
+
+    .piece-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: #fff;
+      display: grid;
+      gap: 8px;
+    }
+
+    .piece-card.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(32, 106, 122, 0.14);
+    }
+
+    .piece-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.2;
+    }
+
+    .piece-grid {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 3px;
+    }
+
+    .piece-cell {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      min-height: 0;
+      padding: 0;
+      border: 0;
+      border-radius: 3px;
+      background: #edf0f2;
+      transform: none;
+    }
+
+    .piece-cell.on {
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.44), transparent 39%),
+        linear-gradient(180deg, var(--piece-color, #35bd63), #188f45);
+      box-shadow:
+        inset 0 4px 0 rgba(255, 255, 255, 0.22),
+        inset 0 -5px 0 rgba(0, 0, 0, 0.18);
+    }
+
+    .select-line {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 6px;
+    }
+
+    .pattern-palette {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+      max-height: 470px;
+      overflow: auto;
+      padding-right: 2px;
+    }
+
+    .pattern-button {
+      min-height: 128px;
+      padding: 9px;
+      display: grid;
+      grid-template-rows: minmax(82px, 1fr) auto;
+      gap: 7px;
+      align-items: center;
+      justify-items: center;
+      text-align: center;
+    }
+
+    .pattern-button.active {
+      border-color: var(--accent);
+      background: rgba(32, 106, 122, 0.08);
+    }
+
+    .pattern-button span {
+      font-size: 0.78rem;
+      font-weight: 700;
+      line-height: 1.25;
+      word-break: keep-all;
+      overflow-wrap: anywhere;
+    }
+
+    .pattern-image {
+      width: min(86px, 100%);
+      height: 86px;
+      display: block;
+      object-fit: contain;
+      filter: drop-shadow(0 8px 10px rgba(30, 36, 48, 0.16));
+    }
+
+    select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fff;
+      color: var(--ink);
+      min-height: 36px;
+      padding: 0 8px;
+      font: inherit;
+    }
+
+    .results {
+      display: grid;
+      gap: 10px;
+    }
+
+    .move {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: #fff;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 10px;
+      align-items: center;
+    }
+
+    .badge {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: inline-grid;
+      place-items: center;
+      color: #fff;
+      background: var(--accent);
+      font-weight: 800;
+      flex: 0 0 auto;
+    }
+
+    .move strong {
+      display: block;
+      line-height: 1.2;
+      margin-bottom: 2px;
+    }
+
+    .move span {
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.35;
+    }
+
+    .empty-result {
+      color: var(--muted);
+      border: 1px dashed #b9c1ca;
+      border-radius: 8px;
+      padding: 16px;
+      background: rgba(255, 255, 255, 0.72);
+    }
+
+    .score-line {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .mini {
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fff;
+      padding: 9px;
+      min-width: 0;
+    }
+
+    .mini span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.75rem;
+      white-space: nowrap;
+    }
+
+    .mini strong {
+      display: block;
+      margin-top: 2px;
+      font-size: 1.05rem;
+      line-height: 1.1;
+    }
+
+    .advice-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .advice-item {
+      border: 1px solid var(--line);
+      border-left-width: 5px;
+      border-radius: 8px;
+      background: #fff;
+      padding: 9px 10px;
+      display: grid;
+      gap: 2px;
+    }
+
+    .advice-item.good {
+      border-left-color: #2d8b57;
+    }
+
+    .advice-item.warn {
+      border-left-color: #d08a22;
+    }
+
+    .advice-item.danger {
+      border-left-color: var(--danger);
+    }
+
+    .advice-item strong {
+      font-size: 0.9rem;
+      line-height: 1.2;
+    }
+
+    .advice-item span {
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.35;
+    }
+
+    .source-link {
+      color: var(--muted);
+      font-size: 0.78rem;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .icon {
+      width: 18px;
+      height: 18px;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+      flex: 0 0 auto;
+    }
+
+    .file-input {
+      position: absolute;
+      inline-size: 1px;
+      block-size: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%);
+      background: #20242a;
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: 8px;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 160ms ease;
+      max-width: calc(100vw - 28px);
+      text-align: center;
+    }
+
+    .toast.show {
+      opacity: 1;
+    }
+
+    @media (max-width: 860px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+
+      header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .actions {
+        justify-content: flex-start;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .app {
+        width: min(100vw - 18px, 480px);
+        padding-top: 12px;
+      }
+
+      .piece-row,
+      .score-line {
+        grid-template-columns: 1fr;
+      }
+
+      .stats {
+        grid-template-columns: 1fr;
+      }
+
+      button {
+        min-height: 42px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <h1>Block Blast Helper</h1>
+      <div class="actions">
+        <button id="loadPreset" type="button" title="この画像の盤面">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4z"/><path d="M8 8h8"/><path d="M8 12h8"/><path d="M8 16h5"/></svg>
+          画像プリセット
+        </button>
+        <button id="pickImage" type="button" title="スクリーンショット読取">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/></svg>
+          読取
+        </button>
+        <input class="file-input" id="screenshotInput" type="file" accept="image/*">
+        <button id="clearBoard" class="warn" type="button" title="盤面を空にする">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+          クリア
+        </button>
+        <button id="solve" class="primary" type="button" title="おすすめ手順">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v5"/><path d="M12 17v5"/><path d="M4.22 4.22l3.54 3.54"/><path d="M16.24 16.24l3.54 3.54"/><path d="M2 12h5"/><path d="M17 12h5"/><path d="M4.22 19.78l3.54-3.54"/><path d="M16.24 7.76l3.54-3.54"/></svg>
+          解析
+        </button>
+      </div>
+    </header>
+
+    <section class="panel board-wrap" aria-label="board">
+      <div id="board" class="board"></div>
+      <div class="stats">
+        <div class="stat"><span>埋まり</span><strong id="filledCount">0</strong></div>
+        <div class="stat"><span>消えそうな列</span><strong id="nearLines">0</strong></div>
+        <div class="stat"><span>最大空き</span><strong id="largestEmpty">0</strong></div>
+      </div>
+    </section>
+
+    <section class="side">
+      <section class="panel">
+        <div class="section-head">
+          <h2>ブロック</h2>
+          <button id="resetPieces" type="button" title="現在の3ピース">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/></svg>
+            復元
+          </button>
+        </div>
+        <div id="pieceSlots" class="piece-slot-bar"></div>
+        <div id="pieces" class="piece-row"></div>
+        <div id="patternPalette" class="pattern-palette"></div>
+      </section>
+
+      <section class="panel">
+        <div class="section-head">
+          <h2>攻略評価</h2>
+          <a class="source-link" href="https://block-blast.jp/strategy" target="_blank" rel="noopener">参考: strategy</a>
+        </div>
+        <div id="strategyTips" class="advice-list"></div>
+      </section>
+
+      <section class="panel">
+        <div class="section-head">
+          <h2>おすすめ</h2>
+          <button id="copyMoves" type="button" title="手順をコピー">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            コピー
+          </button>
+        </div>
+        <div id="scoreLine" class="score-line hidden"></div>
+        <div id="results" class="results">
+          <div class="empty-result">解析を押すと手順が出ます。</div>
+        </div>
+      </section>
+    </section>
+  </main>
+  <div id="toast" class="toast" role="status"></div>
+
+  <script>
+    const SIZE = 8;
+    const PIECE_GRID = 5;
+    const SEARCH_MOVE_LIMITS = [16, 12, 8];
+    const PRESET_BOARD = [
+      [1,0,0,0,0,0,0,0],
+      [1,0,0,0,1,0,0,0],
+      [1,0,1,0,1,0,0,0],
+      [1,0,1,1,1,1,0,0],
+      [0,0,1,1,1,1,1,1],
+      [1,0,1,0,1,1,0,1],
+      [1,0,0,0,1,0,0,1],
+      [1,0,0,0,0,0,0,1],
+    ];
+
+    const LIBRARY = [
+      { id: "single", name: "1×1", cells: [[0,0]] },
+      { id: "line2h", name: "横2", cells: [[0,0],[0,1]] },
+      { id: "line3h", name: "横3", cells: [[0,0],[0,1],[0,2]] },
+      { id: "line4h", name: "横4", cells: [[0,0],[0,1],[0,2],[0,3]] },
+      { id: "line5h", name: "横5", cells: [[0,0],[0,1],[0,2],[0,3],[0,4]] },
+      { id: "line2v", name: "縦2", cells: [[0,0],[1,0]] },
+      { id: "line3v", name: "縦3", cells: [[0,0],[1,0],[2,0]] },
+      { id: "line4v", name: "縦4", cells: [[0,0],[1,0],[2,0],[3,0]] },
+      { id: "line5v", name: "縦5", cells: [[0,0],[1,0],[2,0],[3,0],[4,0]] },
+      { id: "square2", name: "2×2", cells: [[0,0],[0,1],[1,0],[1,1]] },
+      { id: "rect3x2", name: "横3×縦2", cells: [[0,0],[0,1],[0,2],[1,0],[1,1],[1,2]] },
+      { id: "rect2x3", name: "縦3×横2", cells: [[0,0],[0,1],[1,0],[1,1],[2,0],[2,1]] },
+      { id: "square3", name: "3×3", cells: [[0,0],[0,1],[0,2],[1,0],[1,1],[1,2],[2,0],[2,1],[2,2]] },
+      { id: "lSmall", name: "L字 小", cells: [[0,0],[1,0],[2,0],[2,1]] },
+      { id: "lSmallMirror", name: "反転L字 小", cells: [[0,1],[1,1],[2,0],[2,1]] },
+      { id: "lWide", name: "L字 横長", cells: [[0,3],[1,0],[1,1],[1,2],[1,3]] },
+      { id: "lWideMirror", name: "反転L字 横長", cells: [[0,0],[1,0],[1,1],[1,2],[1,3]] },
+      { id: "lLarge", name: "L字 大", cells: [[0,3],[1,3],[2,3],[3,0],[3,1],[3,2],[3,3]] },
+      { id: "lLargeMirror", name: "反転L字 大", cells: [[0,0],[1,0],[2,0],[3,0],[3,1],[3,2],[3,3]] },
+      { id: "bumpLeft", name: "凸型 左向き", cells: [[0,0],[1,0],[1,1],[2,1]] },
+      { id: "bumpRight", name: "凸型 右向き", cells: [[0,1],[1,0],[1,1],[2,0]] },
+      { id: "tUp", name: "T字 上向き", cells: [[0,1],[1,0],[1,1],[1,2]] },
+      { id: "tDown", name: "T字 下向き", cells: [[0,0],[0,1],[0,2],[1,1]] },
+      { id: "tLeft", name: "T字 左向き", cells: [[0,1],[1,0],[1,1],[2,1]] },
+      { id: "tRight", name: "T字 右向き", cells: [[0,0],[1,0],[1,1],[2,0]] },
+      { id: "diag2Up", name: "斜め2 右上がり", cells: [[1,0],[0,1]] },
+      { id: "diag2Down", name: "斜め2 右下がり", cells: [[0,0],[1,1]] },
+      { id: "diag3Up", name: "斜め3 右上がり", cells: [[2,0],[1,1],[0,2]] },
+      { id: "diag3Down", name: "斜め3 右下がり", cells: [[0,0],[1,1],[2,2]] },
+      { id: "zShape", name: "Z字", cells: [[0,0],[0,1],[1,1],[1,2]] },
+      { id: "sShape", name: "反転Z字/S字", cells: [[0,1],[0,2],[1,0],[1,1]] },
+    ];
+
+    const PRESET_PIECES = [
+      { name: "緑T", color: "#34c85d", cells: [[0,0],[0,1],[0,2],[1,1]] },
+      { name: "緑L", color: "#33bd59", cells: [[0,0],[1,0],[1,1],[1,2]] },
+      { name: "橙L", color: "#f47b25", cells: [[0,0],[0,1],[0,2],[1,2],[2,2]] },
+    ];
+
+    const boardEl = document.querySelector("#board");
+    const pieceSlotsEl = document.querySelector("#pieceSlots");
+    const piecesEl = document.querySelector("#pieces");
+    const patternPaletteEl = document.querySelector("#patternPalette");
+    const resultsEl = document.querySelector("#results");
+    const scoreLineEl = document.querySelector("#scoreLine");
+    const strategyTipsEl = document.querySelector("#strategyTips");
+    const filledCountEl = document.querySelector("#filledCount");
+    const nearLinesEl = document.querySelector("#nearLines");
+    const largestEmptyEl = document.querySelector("#largestEmpty");
+    const toastEl = document.querySelector("#toast");
+    let board = emptyBoard();
+    let pieces = PRESET_PIECES.map(clonePiece);
+    let currentSolution = null;
+    let activePieceIndex = 0;
+
+    function cloneBoard(value) {
+      return value.map(row => row.slice());
+    }
+
+    function emptyBoard() {
+      return Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
+    }
+
+    function clonePiece(piece) {
+      return {
+        name: piece.name,
+        color: piece.color,
+        cells: piece.cells.map(cell => cell.slice()),
+      };
+    }
+
+    function normalizeCells(cells) {
+      if (!cells.length) return [];
+      const minR = Math.min(...cells.map(([r]) => r));
+      const minC = Math.min(...cells.map(([, c]) => c));
+      return cells
+        .map(([r, c]) => [r - minR, c - minC])
+        .sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    }
+
+    function renderBoard(preview = []) {
+      boardEl.innerHTML = "";
+      const previewMap = new Map(preview.map(item => [`${item.r},${item.c}`, item]));
+      for (let r = 0; r < SIZE; r++) {
+        for (let c = 0; c < SIZE; c++) {
+          const cell = document.createElement("button");
+          cell.type = "button";
+          cell.className = "cell";
+          cell.title = `${r + 1}行 ${c + 1}列`;
+          if (board[r][c]) cell.classList.add("filled");
+          const previewStep = previewMap.get(`${r},${c}`);
+          if (previewStep) {
+            cell.classList.add(`preview-${previewStep.step}`);
+            cell.dataset.step = previewStep.label;
+            cell.title = `${previewStep.label}手目: ${r + 1}行 ${c + 1}列`;
+          }
+          cell.addEventListener("click", () => {
+            board[r][c] = board[r][c] ? 0 : 1;
+            currentSolution = null;
+            renderAll();
+          });
+          boardEl.appendChild(cell);
+        }
+      }
+      updateStats();
+    }
+
+    function renderPieces() {
+      piecesEl.innerHTML = "";
+      pieces.forEach((piece, index) => {
+        const card = document.createElement("div");
+        card.className = "piece-card";
+        if (index === activePieceIndex) card.classList.add("active");
+        card.style.setProperty("--piece-color", piece.color);
+        card.addEventListener("click", () => {
+          activePieceIndex = index;
+          renderPieceControls();
+        });
+
+        const title = document.createElement("div");
+        title.className = "piece-title";
+        title.innerHTML = `<span>${piece.name}</span><span>${piece.cells.length}マス</span>`;
+        card.appendChild(title);
+
+        const grid = document.createElement("div");
+        grid.className = "piece-grid";
+        const cellSet = new Set(piece.cells.map(([r, c]) => `${r},${c}`));
+        for (let r = 0; r < PIECE_GRID; r++) {
+          for (let c = 0; c < PIECE_GRID; c++) {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "piece-cell";
+            if (cellSet.has(`${r},${c}`)) btn.classList.add("on");
+            btn.title = `${r + 1}, ${c + 1}`;
+            btn.addEventListener("click", () => {
+              togglePieceCell(index, r, c);
+              currentSolution = null;
+              renderAll();
+            });
+            grid.appendChild(btn);
+          }
+        }
+        card.appendChild(grid);
+
+        const selectLine = document.createElement("div");
+        selectLine.className = "select-line";
+        const select = document.createElement("select");
+        LIBRARY.forEach(shape => {
+          const option = document.createElement("option");
+          option.value = shape.id;
+          option.textContent = shape.name;
+          select.appendChild(option);
+        });
+        select.value = detectLibraryId(piece.cells) || "";
+        select.addEventListener("change", () => {
+          const shape = LIBRARY.find(item => item.id === select.value);
+          if (!shape) return;
+          setPieceFromLibrary(index, shape);
+        });
+        const trim = document.createElement("button");
+        trim.type = "button";
+        trim.title = "左上に寄せる";
+        trim.innerHTML = `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16"/><path d="M4 4v16"/><path d="M9 9h7v7H9z"/></svg>`;
+        trim.addEventListener("click", () => {
+          pieces[index].cells = normalizeCells(pieces[index].cells);
+          renderAll();
+        });
+        selectLine.append(select, trim);
+        card.appendChild(selectLine);
+        piecesEl.appendChild(card);
+      });
+    }
+
+    function renderPieceSlots() {
+      pieceSlotsEl.innerHTML = "";
+      pieces.forEach((piece, index) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "slot-button";
+        if (index === activePieceIndex) button.classList.add("active");
+        button.title = `${index + 1}番目のブロックを選択`;
+        button.innerHTML = `
+          ${pieceImageHtml(piece.cells, piece.color, "piece-slot-thumb", `${index + 1}番 ${piece.name || "未設定"}`)}
+          <span class="slot-copy"><strong>${index + 1}番</strong><span>${escapeHtml(piece.name || "未設定")}</span></span>
+        `;
+        button.addEventListener("click", () => {
+          activePieceIndex = index;
+          renderPieceControls();
+        });
+        pieceSlotsEl.appendChild(button);
+      });
+    }
+
+    function renderPatternPalette() {
+      patternPaletteEl.innerHTML = "";
+      const selectedId = detectLibraryId(pieces[activePieceIndex]?.cells || []);
+      const color = pieces[activePieceIndex]?.color || pieceColorForSlot(activePieceIndex);
+      LIBRARY.forEach((shape, index) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "pattern-button";
+        if (shape.id === selectedId) button.classList.add("active");
+        button.title = `${activePieceIndex + 1}番に ${shape.name} を入れる`;
+        button.innerHTML = `
+          ${pieceImageHtml(shape.cells, color, "pattern-image", shape.name)}
+          <span>${index + 1}. ${escapeHtml(shape.name)}</span>
+        `;
+        button.addEventListener("click", () => setPieceFromLibrary(activePieceIndex, shape));
+        patternPaletteEl.appendChild(button);
+      });
+    }
+
+    function pieceImageHtml(cells, color, className, alt) {
+      return `<img class="${className}" alt="${escapeHtml(alt)}" src="${pieceImageSrc(cells, color)}">`;
+    }
+
+    function pieceImageSrc(cells, color) {
+      const normalized = normalizeCells(cells);
+      const safeColor = /^#[0-9a-f]{6}$/i.test(color || "") ? color : "#34c85d";
+      const topColor = shadeColor(safeColor, 34);
+      const bottomColor = shadeColor(safeColor, -28);
+      const edgeColor = shadeColor(safeColor, -42);
+      const maxR = normalized.length ? Math.max(...normalized.map(([r]) => r)) : 0;
+      const maxC = normalized.length ? Math.max(...normalized.map(([, c]) => c)) : 0;
+      const canvas = 96;
+      const gap = 3;
+      const cell = Math.min(21, Math.floor((canvas - 18 - gap * Math.max(maxR, maxC)) / Math.max(maxR + 1, maxC + 1, 1)));
+      const width = (maxC + 1) * cell + maxC * gap;
+      const height = (maxR + 1) * cell + maxR * gap;
+      const left = (canvas - width) / 2;
+      const top = (canvas - height) / 2;
+      const blocks = normalized.map(([r, c]) => {
+        const x = left + c * (cell + gap);
+        const y = top + r * (cell + gap);
+        return `
+          <rect x="${x}" y="${y}" width="${cell}" height="${cell}" rx="3" fill="url(#g)" stroke="${edgeColor}" stroke-width="1.3"/>
+          <path d="M${x + 3} ${y + 4}H${x + cell - 4}V${y + 8}H${x + 7}V${y + cell - 4}H${x + 3}Z" fill="#fff" opacity=".22"/>
+          <rect x="${x + 3}" y="${y + cell - 6}" width="${cell - 6}" height="3" rx="1.5" fill="#000" opacity=".15"/>
+        `;
+      }).join("");
+      const svg = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="${canvas}" height="${canvas}" viewBox="0 0 ${canvas} ${canvas}">
+          <defs>
+            <linearGradient id="g" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0" stop-color="${topColor}"/>
+              <stop offset=".58" stop-color="${safeColor}"/>
+              <stop offset="1" stop-color="${bottomColor}"/>
+            </linearGradient>
+          </defs>
+          ${blocks}
+        </svg>
+      `;
+      return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+    }
+
+    function shadeColor(hex, percent) {
+      const value = hex.replace("#", "");
+      const amount = Math.round(2.55 * percent);
+      const channels = [0, 2, 4].map(start => {
+        const next = parseInt(value.slice(start, start + 2), 16) + amount;
+        return Math.max(0, Math.min(255, next)).toString(16).padStart(2, "0");
+      });
+      return `#${channels.join("")}`;
+    }
+
+    function pieceColorForSlot(index) {
+      const paletteColors = ["#34c85d", "#33bd59", "#f47b25"];
+      return paletteColors[index % paletteColors.length];
+    }
+
+    function setPieceFromLibrary(index, shape) {
+      pieces[index] = {
+        name: shape.name,
+        color: pieces[index]?.color || pieceColorForSlot(index),
+        cells: normalizeCells(shape.cells),
+      };
+      activePieceIndex = index;
+      currentSolution = null;
+      renderAll();
+    }
+
+    function detectLibraryId(cells) {
+      const normalized = JSON.stringify(normalizeCells(cells));
+      const shape = LIBRARY.find(item => JSON.stringify(normalizeCells(item.cells)) === normalized);
+      return shape ? shape.id : "";
+    }
+
+    function togglePieceCell(index, r, c) {
+      const cells = pieces[index].cells;
+      const hit = cells.findIndex(([rr, cc]) => rr === r && cc === c);
+      if (hit >= 0) {
+        cells.splice(hit, 1);
+      } else {
+        cells.push([r, c]);
+      }
+      pieces[index].cells = normalizeCells(cells);
+      pieces[index].name = detectLibraryId(pieces[index].cells)
+        ? LIBRARY.find(item => item.id === detectLibraryId(pieces[index].cells)).name
+        : "カスタム";
+    }
+
+    function updateStats() {
+      const filled = board.flat().filter(Boolean).length;
+      filledCountEl.textContent = `${filled}/64`;
+      nearLinesEl.textContent = countNearLines(board);
+      largestEmptyEl.textContent = largestEmptySquare(board);
+    }
+
+    function countNearLines(state) {
+      let total = 0;
+      for (let r = 0; r < SIZE; r++) {
+        const filled = state[r].reduce((sum, value) => sum + value, 0);
+        if (filled >= 6 && filled < 8) total++;
+      }
+      for (let c = 0; c < SIZE; c++) {
+        let filled = 0;
+        for (let r = 0; r < SIZE; r++) filled += state[r][c];
+        if (filled >= 6 && filled < 8) total++;
+      }
+      return total;
+    }
+
+    function largestEmptySquare(state) {
+      const dp = Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
+      let best = 0;
+      for (let r = 0; r < SIZE; r++) {
+        for (let c = 0; c < SIZE; c++) {
+          if (state[r][c]) continue;
+          dp[r][c] = 1 + Math.min(dp[r - 1]?.[c] || 0, dp[r]?.[c - 1] || 0, dp[r - 1]?.[c - 1] || 0);
+          best = Math.max(best, dp[r][c]);
+        }
+      }
+      return `${best}×${best}`;
+    }
+
+    function getBounds(cells) {
+      return {
+        h: Math.max(...cells.map(([r]) => r)) + 1,
+        w: Math.max(...cells.map(([, c]) => c)) + 1,
+      };
+    }
+
+    function canPlace(state, piece, top, left) {
+      return piece.cells.every(([r, c]) => {
+        const rr = top + r;
+        const cc = left + c;
+        return rr >= 0 && rr < SIZE && cc >= 0 && cc < SIZE && !state[rr][cc];
+      });
+    }
+
+    function placePiece(state, piece, top, left) {
+      const next = cloneBoard(state);
+      piece.cells.forEach(([r, c]) => {
+        next[top + r][left + c] = 1;
+      });
+      const rows = [];
+      const cols = [];
+      for (let r = 0; r < SIZE; r++) {
+        if (next[r].every(Boolean)) rows.push(r);
+      }
+      for (let c = 0; c < SIZE; c++) {
+        let full = true;
+        for (let r = 0; r < SIZE; r++) {
+          if (!next[r][c]) {
+            full = false;
+            break;
+          }
+        }
+        if (full) cols.push(c);
+      }
+      rows.forEach(r => {
+        for (let c = 0; c < SIZE; c++) next[r][c] = 0;
+      });
+      cols.forEach(c => {
+        for (let r = 0; r < SIZE; r++) next[r][c] = 0;
+      });
+      return { board: next, cleared: rows.length + cols.length, rows, cols };
+    }
+
+    function placementsFor(state, piece) {
+      if (!piece.cells.length) return [];
+      const bounds = getBounds(piece.cells);
+      const moves = [];
+      for (let r = 0; r <= SIZE - bounds.h; r++) {
+        for (let c = 0; c <= SIZE - bounds.w; c++) {
+          if (canPlace(state, piece, r, c)) moves.push({ r, c });
+        }
+      }
+      return moves;
+    }
+
+    function permuteIndexes(count) {
+      const out = [];
+      const used = Array(count).fill(false);
+      const path = [];
+      function dfs() {
+        if (path.length === count) {
+          out.push(path.slice());
+          return;
+        }
+        for (let i = 0; i < count; i++) {
+          if (used[i]) continue;
+          used[i] = true;
+          path.push(i);
+          dfs();
+          path.pop();
+          used[i] = false;
+        }
+      }
+      dfs();
+      return out;
+    }
+
+    function solveState(startBoard, startPieces) {
+      const active = startPieces
+        .map((piece, index) => ({ ...clonePiece(piece), index }))
+        .filter(piece => piece.cells.length);
+      if (!active.length) return null;
+
+      let best = null;
+      for (const order of permuteIndexes(active.length)) {
+        search(cloneBoard(startBoard), order, 0, [], 0);
+      }
+      return best;
+
+      function search(state, order, depth, path, clears) {
+        if (depth === order.length) {
+          const metrics = evaluateBoard(state, active);
+          const multiLineBonus = path.reduce((sum, move) => sum + (move.cleared >= 2 ? move.cleared * move.cleared * 1300 : 0), 0);
+          const heartCycleBonus = clears > 0 ? 1800 : -2400;
+          const score = metrics.score + clears * 4300 + multiLineBonus + heartCycleBonus;
+          const result = {
+            score,
+            metrics: { ...metrics, clears },
+            moves: path.map(move => ({
+              ...move,
+              cells: move.cells.map(cell => cell.slice()),
+              rows: move.rows.slice(),
+              cols: move.cols.slice(),
+            })),
+            board: cloneBoard(state),
+          };
+          if (!best || result.score > best.score) best = result;
+          return;
+        }
+
+        const piece = active[order[depth]];
+        const moves = rankMoves(state, piece, placementsFor(state, piece), SEARCH_MOVE_LIMITS[depth] || 48);
+        if (!moves.length) return;
+
+        for (const move of moves) {
+          const placed = placePiece(state, piece, move.r, move.c);
+          path.push({
+            pieceIndex: piece.index,
+            pieceName: piece.name,
+            top: move.r,
+            left: move.c,
+            cells: piece.cells.map(([r, c]) => [move.r + r, move.c + c]),
+            cleared: placed.cleared,
+            rows: placed.rows,
+            cols: placed.cols,
+          });
+          search(placed.board, order, depth + 1, path, clears + placed.cleared);
+          path.pop();
+        }
+      }
+    }
+
+    function rankMoves(state, piece, moves, limit) {
+      if (moves.length <= limit) return moves;
+      return moves
+        .map(move => {
+          const placed = placePiece(state, piece, move.r, move.c);
+          const metrics = quickBoardMetrics(placed.board);
+          const score =
+            placed.cleared * 1200 +
+            metrics.maxSquare * 180 +
+            metrics.empty * 12 +
+            metrics.near * 45 -
+            metrics.holes * 170 -
+            metrics.edge * 24;
+          return { move, score };
+        })
+        .sort((a, b) => b.score - a.score)
+        .slice(0, limit)
+        .map(item => item.move);
+    }
+
+    function quickBoardMetrics(state) {
+      return {
+        empty: 64 - state.flat().filter(Boolean).length,
+        maxSquare: largestEmptySquareNumber(state),
+        holes: isolatedEmpties(state),
+        near: countNearLines(state),
+        edge: edgePressure(state),
+      };
+    }
+
+    function evaluateBoard(state, activePieces) {
+      const empty = 64 - state.flat().filter(Boolean).length;
+      const maxSquare = largestEmptySquareNumber(state);
+      const maxRect = largestEmptyRectangle(state);
+      const holes = isolatedEmpties(state);
+      const rough = roughness(state);
+      const near = countNearLines(state);
+      const future = futureFitScore(state, activePieces);
+      const center = centerPressure(state);
+      const edge = edgePressure(state);
+      const emptyTargetPenalty = empty < 13 ? (13 - empty) * 260 : empty > 28 ? (empty - 28) * 42 : 0;
+      const noRefugePenalty = maxSquare < 3 ? 900 : 0;
+      const score =
+        empty * 24 +
+        maxSquare * maxSquare * 170 +
+        maxRect * 18 +
+        near * 70 +
+        future * 11 -
+        holes * 260 -
+        rough * 12 -
+        center * 5 -
+        edge * 34 -
+        emptyTargetPenalty -
+        noRefugePenalty;
+      return { empty, maxSquare, maxRect, holes, rough, near, future, center, edge, emptyTargetPenalty, score };
+    }
+
+    function largestEmptySquareNumber(state) {
+      const dp = Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
+      let best = 0;
+      for (let r = 0; r < SIZE; r++) {
+        for (let c = 0; c < SIZE; c++) {
+          if (state[r][c]) continue;
+          dp[r][c] = 1 + Math.min(dp[r - 1]?.[c] || 0, dp[r]?.[c - 1] || 0, dp[r - 1]?.[c - 1] || 0);
+          best = Math.max(best, dp[r][c]);
+        }
+      }
+      return best;
+    }
+
+    function largestEmptyRectangle(state) {
+      let best = 0;
+      const heights = Array(SIZE).fill(0);
+      for (let r = 0; r < SIZE; r++) {
+        for (let c = 0; c < SIZE; c++) {
+          heights[c] = state[r][c] ? 0 : heights[c] + 1;
+        }
+        const stack = [];
+        for (let i = 0; i <= SIZE; i++) {
+          const h = i === SIZE ? 0 : heights[i];
+          while (stack.length && heights[stack[stack.length - 1]] > h) {
+            const height = heights[stack.pop()];
+            const left = stack.length ? stack[stack.length - 1] + 1 : 0;
+            best = Math.max(best, height * (i - left));
+          }
+          stack.push(i);
+        }
+      }
+      return best;
+    }
+
+    function isolatedEmpties(state) {
+      let count = 0;
+      for (let r = 0; r < SIZE; r++) {
+        for (let c = 0; c < SIZE; c++) {
+          if (state[r][c]) continue;
+          let neighbors = 0;
+          [[1,0],[-1,0],[0,1],[0,-1]].forEach(([dr, dc]) => {
+            const rr = r + dr;
+            const cc = c + dc;
+            if (rr >= 0 && rr < SIZE && cc >= 0 && cc < SIZE && !state[rr][cc]) neighbors++;
+          });
+          if (neighbors <= 1) count++;
+        }
+      }
+      return count;
+    }
+
+    function roughness(state) {
+      let score = 0;
+      for (let r = 0; r < SIZE; r++) {
+        for (let c = 0; c < SIZE; c++) {
+          const value = state[r][c];
+          if (r + 1 < SIZE && state[r + 1][c] !== value) score++;
+          if (c + 1 < SIZE && state[r][c + 1] !== value) score++;
+        }
+      }
+      return score;
+    }
+
+    function futureFitScore(state, activePieces) {
+      let score = 0;
+      for (const shape of LIBRARY) {
+        const weight = shape.cells.length >= 5 ? 3 : shape.cells.length >= 4 ? 2 : 1;
+        score += Math.min(placementsFor(state, shape).length, 18) * weight;
+      }
+      for (const piece of activePieces) {
+        score += Math.min(placementsFor(state, piece).length, 20) * 2;
+      }
+      return score;
+    }
+
+    function centerPressure(state) {
+      let score = 0;
+      for (let r = 2; r <= 5; r++) {
+        for (let c = 2; c <= 5; c++) {
+          if (state[r][c]) score++;
+        }
+      }
+      return score;
+    }
+
+    function edgePressure(state) {
+      let score = 0;
+      for (let c of [0, 1, 6, 7]) {
+        let filled = 0;
+        for (let r = 0; r < SIZE; r++) filled += state[r][c];
+        if (filled >= 7) score += 4;
+        else if (filled >= 6) score += 2;
+      }
+      for (let r of [0, 1, 6, 7]) {
+        const filled = state[r].reduce((sum, value) => sum + value, 0);
+        if (filled >= 7) score += 4;
+        else if (filled >= 6) score += 2;
+      }
+      return score;
+    }
+
+    function renderResults(solution) {
+      scoreLineEl.innerHTML = "";
+      scoreLineEl.classList.add("hidden");
+      if (!solution) {
+        resultsEl.innerHTML = `<div class="empty-result">置ける手順がありません。</div>`;
+        renderBoard();
+        renderStrategyTips(null);
+        return;
+      }
+      const preview = [];
+      solution.moves.forEach((move, idx) => {
+        const step = ["a", "b", "c"][idx] || "a";
+        move.cells.forEach(([r, c]) => preview.push({ r, c, step, label: idx + 1 }));
+      });
+      renderBoard(preview);
+
+      const metrics = [
+        ["消し", solution.metrics.clears],
+        ["空き", solution.metrics.empty],
+        ["最大空き", `${solution.metrics.maxSquare}×${solution.metrics.maxSquare}`],
+        ["穴", solution.metrics.holes],
+      ];
+      metrics.forEach(([label, value]) => {
+        const mini = document.createElement("div");
+        mini.className = "mini";
+        mini.innerHTML = `<span>${label}</span><strong>${value}</strong>`;
+        scoreLineEl.appendChild(mini);
+      });
+      scoreLineEl.classList.remove("hidden");
+
+      resultsEl.innerHTML = "";
+      const note = document.createElement("div");
+      note.className = "empty-result";
+      note.textContent = "盤面上の番号付きブロックが置き場所です。1 → 2 → 3 の順番で置いてください。";
+      resultsEl.appendChild(note);
+      solution.moves.forEach((move, idx) => {
+        const el = document.createElement("div");
+        el.className = "move";
+        const clearText = move.cleared
+          ? ` / ${move.cleared}ライン消し${formatClears(move)}`
+          : "";
+        el.innerHTML = `
+          <div class="badge">${idx + 1}</div>
+          <div>
+            <strong>${move.pieceName} → ${move.top + 1}行 ${move.left + 1}列</strong>
+            <span>左上基準${clearText}</span>
+          </div>
+        `;
+        resultsEl.appendChild(el);
+      });
+      renderStrategyTips(solution);
+    }
+
+    function formatClears(move) {
+      const parts = [];
+      if (move.rows.length) parts.push(`行 ${move.rows.map(v => v + 1).join(",")}`);
+      if (move.cols.length) parts.push(`列 ${move.cols.map(v => v + 1).join(",")}`);
+      return parts.length ? `（${parts.join(" / ")}）` : "";
+    }
+
+    function renderStrategyTips(solution) {
+      const state = solution ? solution.board : board;
+      const active = pieces.filter(piece => piece.cells.length);
+      const metrics = solution ? solution.metrics : evaluateBoard(state, active);
+      const tips = [];
+      const add = (level, title, body) => tips.push({ level, title, body });
+
+      if (metrics.empty <= 10) {
+        add("danger", "空き10マス以下", "詰み予備軍。小ブロックで穴を埋め、まず空き地を作る。");
+      } else if (metrics.empty >= 13 && metrics.empty <= 19) {
+        add("good", "空き13〜19マス", "20〜30%の空きが残っていて、スコアと安定のバランスが良い。");
+      } else if (metrics.empty < 13) {
+        add("warn", "空きが少なめ", "次の3ブロックで置き場が急に減るので、ライン消しを優先。");
+      } else if (metrics.empty > 28) {
+        add("warn", "空きが多め", "安全だがスコア効率は落ちやすい。2〜3列同時消しの形を作る。");
+      }
+
+      if (metrics.maxSquare >= 3) {
+        add("good", "3×3空間あり", "大ブロック用の避難所が残っている。");
+      } else {
+        add("danger", "3×3空間なし", "3×3や大Lが来ると詰みやすい。中央か角に広い空きを作る。");
+      }
+
+      if (metrics.holes >= 3) {
+        add("danger", "1マス穴が多い", "1×1待ちは危険。連続2マス以上の空きに戻す。");
+      } else if (metrics.holes > 0) {
+        add("warn", "小さい穴あり", "次に小ブロックがあるなら早めに埋める。");
+      } else {
+        add("good", "孤立穴なし", "盤面がつながっていて次の形を受けやすい。");
+      }
+
+      if (solution) {
+        if (metrics.clears >= 2) {
+          add("good", "複数ライン消し", "同時消しでコンボ効率が高い手順。");
+        } else if (metrics.clears === 1) {
+          add("good", "3手以内に消去", "ハートメソッド寄り。次ターンも消去サイクルを続ける。");
+        } else {
+          add("warn", "今回は消去なし", "盤面整理の手。次の3手では必ず1回消す形を狙う。");
+        }
+      }
+
+      const tightPieces = active
+        .map(piece => ({ name: piece.name, count: placementsFor(state, piece).length }))
+        .filter(item => item.count <= 1);
+      if (tightPieces.length) {
+        const names = tightPieces.map(item => `${item.name}:${item.count}`).join(" / ");
+        add("danger", "置き場が少ないブロックあり", `${names}。この形の受けを増やす。`);
+      }
+
+      if (metrics.edge >= 6) {
+        add("warn", "端が詰まり気味", "端2列が重い。角Lやライン消しで片側を軽くする。");
+      }
+
+      strategyTipsEl.innerHTML = tips.slice(0, 6).map(item => `
+        <div class="advice-item ${item.level}">
+          <strong>${escapeHtml(item.title)}</strong>
+          <span>${escapeHtml(item.body)}</span>
+        </div>
+      `).join("");
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function solveAndRender() {
+      const solution = solveState(board, pieces);
+      currentSolution = solution;
+      renderResults(solution);
+    }
+
+    function renderAll() {
+      renderBoard();
+      renderPieceControls();
+      if (!currentSolution) {
+        scoreLineEl.classList.add("hidden");
+        resultsEl.innerHTML = `<div class="empty-result">解析を押すと手順が出ます。</div>`;
+        renderStrategyTips(null);
+      }
+    }
+
+    function renderPieceControls() {
+      renderPieceSlots();
+      renderPieces();
+      renderPatternPalette();
+    }
+
+    function showToast(message) {
+      toastEl.textContent = message;
+      toastEl.classList.add("show");
+      clearTimeout(showToast.timer);
+      showToast.timer = setTimeout(() => toastEl.classList.remove("show"), 1800);
+    }
+
+    function copyMoves() {
+      if (!currentSolution) {
+        showToast("先に解析してください");
+        return;
+      }
+      const text = currentSolution.moves.map((move, idx) => {
+        const clear = move.cleared ? `、${move.cleared}ライン消し${formatClears(move)}` : "";
+        return `${idx + 1}. ${move.pieceName}: ${move.top + 1}行 ${move.left + 1}列${clear}`;
+      }).join("\n");
+      navigator.clipboard?.writeText(text).then(
+        () => showToast("コピーしました"),
+        () => showToast(text)
+      );
+    }
+
+    function resetPreset() {
+      board = cloneBoard(PRESET_BOARD);
+      pieces = PRESET_PIECES.map(clonePiece);
+      activePieceIndex = 0;
+      currentSolution = null;
+      renderAll();
+      showToast("プリセットを読み込みました");
+    }
+
+    function clearBoard() {
+      board = emptyBoard();
+      currentSolution = null;
+      renderAll();
+    }
+
+    function resetPieces() {
+      pieces = PRESET_PIECES.map(clonePiece);
+      activePieceIndex = 0;
+      currentSolution = null;
+      renderAll();
+    }
+
+    async function readScreenshot(file) {
+      const image = await loadImage(file);
+      const canvas = document.createElement("canvas");
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      ctx.drawImage(image, 0, 0);
+      const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const bounds = detectBoardBounds(img);
+      if (!bounds) {
+        showToast("盤面を検出できませんでした");
+        return;
+      }
+      board = readBoardFromImage(img, bounds);
+      const foundPieces = readPiecesFromImage(img, bounds);
+      if (foundPieces.length === 3) {
+        pieces = foundPieces;
+        activePieceIndex = 0;
+      }
+      currentSolution = null;
+      renderAll();
+      showToast(foundPieces.length === 3 ? "盤面とブロックを読み取りました" : "盤面を読み取りました");
+    }
+
+    function loadImage(file) {
+      return new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = reject;
+        image.src = URL.createObjectURL(file);
+      });
+    }
+
+    function detectBoardBounds(img) {
+      const { width, height, data } = img;
+      const startX = Math.floor(width * 0.12);
+      const endX = Math.floor(width * 0.98);
+      const startY = Math.floor(height * 0.16);
+      const endY = Math.floor(height * 0.74);
+      const xs = [];
+      const ys = [];
+      for (let y = startY; y < endY; y += 2) {
+        for (let x = startX; x < endX; x += 2) {
+          const i = (y * width + x) * 4;
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+          if (r < 58 && g < 66 && b < 100 && b > r + 8) {
+            xs.push(x);
+            ys.push(y);
+          }
+        }
+      }
+      if (xs.length < 1000) return null;
+      const minX = percentile(xs, 1);
+      const maxX = percentile(xs, 99);
+      const minY = percentile(ys, 1);
+      const maxY = percentile(ys, 99);
+      const side = Math.min(maxX - minX, maxY - minY);
+      return {
+        x: Math.round(minX),
+        y: Math.round(minY),
+        side: Math.round(side),
+      };
+    }
+
+    function percentile(values, p) {
+      const sorted = values.slice().sort((a, b) => a - b);
+      return sorted[Math.max(0, Math.min(sorted.length - 1, Math.floor(sorted.length * p / 100)))];
+    }
+
+    function readBoardFromImage(img, bounds) {
+      const next = Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
+      const cell = bounds.side / SIZE;
+      for (let r = 0; r < SIZE; r++) {
+        for (let c = 0; c < SIZE; c++) {
+          const stats = sampleRect(
+            img,
+            bounds.x + c * cell + cell * 0.22,
+            bounds.y + r * cell + cell * 0.22,
+            cell * 0.56,
+            cell * 0.56
+          );
+          next[r][c] = stats.luma > 75 && stats.sat > 0.28 ? 1 : 0;
+        }
+      }
+      return next;
+    }
+
+    function sampleRect(img, x, y, w, h) {
+      const { width, height, data } = img;
+      let count = 0;
+      let luma = 0;
+      let sat = 0;
+      for (let yy = Math.max(0, Math.floor(y)); yy < Math.min(height, Math.ceil(y + h)); yy += 2) {
+        for (let xx = Math.max(0, Math.floor(x)); xx < Math.min(width, Math.ceil(x + w)); xx += 2) {
+          const i = (yy * width + xx) * 4;
+          const r = data[i] / 255;
+          const g = data[i + 1] / 255;
+          const b = data[i + 2] / 255;
+          const max = Math.max(r, g, b);
+          const min = Math.min(r, g, b);
+          luma += (0.2126 * r + 0.7152 * g + 0.0722 * b) * 255;
+          sat += max === 0 ? 0 : (max - min) / max;
+          count++;
+        }
+      }
+      return { luma: luma / count, sat: sat / count };
+    }
+
+    function readPiecesFromImage(img, bounds) {
+      const { width, height, data } = img;
+      const top = Math.min(height - 1, Math.floor(bounds.y + bounds.side + height * 0.06));
+      const components = [];
+      const visited = new Uint8Array(width * height);
+      const isBlockPixel = (x, y) => {
+        if (x < 0 || y < top || x >= width || y >= height) return false;
+        const i = (y * width + x) * 4;
+        const r = data[i], g = data[i + 1], b = data[i + 2];
+        return Math.max(r, g) > 110 && b < 135 && Math.abs(r - g) > 16;
+      };
+      for (let y = top; y < height; y += 2) {
+        for (let x = 0; x < width; x += 2) {
+          const key = y * width + x;
+          if (visited[key] || !isBlockPixel(x, y)) continue;
+          const queue = [[x, y]];
+          visited[key] = 1;
+          let minX = x, maxX = x, minY = y, maxY = y, area = 0, red = 0, green = 0;
+          while (queue.length) {
+            const [cx, cy] = queue.pop();
+            const i = (cy * width + cx) * 4;
+            red += data[i];
+            green += data[i + 1];
+            area++;
+            minX = Math.min(minX, cx);
+            maxX = Math.max(maxX, cx);
+            minY = Math.min(minY, cy);
+            maxY = Math.max(maxY, cy);
+            for (const [dx, dy] of [[2,0],[-2,0],[0,2],[0,-2],[2,2],[-2,-2],[2,-2],[-2,2]]) {
+              const nx = cx + dx;
+              const ny = cy + dy;
+              const nk = ny * width + nx;
+              if (nx < 0 || ny < top || nx >= width || ny >= height || visited[nk] || !isBlockPixel(nx, ny)) continue;
+              visited[nk] = 1;
+              queue.push([nx, ny]);
+            }
+          }
+          if (area > 120) {
+            components.push({ minX, maxX, minY, maxY, area, red: red / area, green: green / area });
+          }
+        }
+      }
+      const merged = mergeComponents(components)
+        .filter(box => box.area > 450)
+        .sort((a, b) => a.minX - b.minX)
+        .slice(0, 3);
+      return merged.map((box, idx) => pieceFromBox(img, box, idx)).filter(Boolean);
+    }
+
+    function mergeComponents(components) {
+      const boxes = components.map(item => ({ ...item }));
+      let changed = true;
+      while (changed) {
+        changed = false;
+        outer:
+        for (let i = 0; i < boxes.length; i++) {
+          for (let j = i + 1; j < boxes.length; j++) {
+            if (distanceBetween(boxes[i], boxes[j]) < 20) {
+              const a = boxes[i];
+              const b = boxes[j];
+              const area = a.area + b.area;
+              boxes[i] = {
+                minX: Math.min(a.minX, b.minX),
+                maxX: Math.max(a.maxX, b.maxX),
+                minY: Math.min(a.minY, b.minY),
+                maxY: Math.max(a.maxY, b.maxY),
+                area,
+                red: (a.red * a.area + b.red * b.area) / area,
+                green: (a.green * a.area + b.green * b.area) / area,
+              };
+              boxes.splice(j, 1);
+              changed = true;
+              break outer;
+            }
+          }
+        }
+      }
+      return boxes;
+    }
+
+    function distanceBetween(a, b) {
+      const dx = Math.max(0, Math.max(a.minX, b.minX) - Math.min(a.maxX, b.maxX));
+      const dy = Math.max(0, Math.max(a.minY, b.minY) - Math.min(a.maxY, b.maxY));
+      return Math.hypot(dx, dy);
+    }
+
+    function pieceFromBox(img, box, idx) {
+      const shape = bestShapeForBox(img, box);
+      if (!shape.length) return null;
+      const green = box.green >= box.red;
+      return {
+        name: `${green ? "緑" : "橙"}${idx + 1}`,
+        color: green ? "#34c85d" : "#f47b25",
+        cells: normalizeCells(shape),
+      };
+    }
+
+    function bestShapeForBox(img, box) {
+      let best = { score: -Infinity, cells: [] };
+      for (let rows = 1; rows <= 5; rows++) {
+        for (let cols = 1; cols <= 5; cols++) {
+          const cellW = (box.maxX - box.minX + 1) / cols;
+          const cellH = (box.maxY - box.minY + 1) / rows;
+          const aspect = Math.max(cellW, cellH) / Math.min(cellW, cellH);
+          if (cellW < 12 || cellH < 12 || aspect > 1.18) continue;
+          const cells = [];
+          let density = 0;
+          let emptyNoise = 0;
+          for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+              const stats = samplePieceRect(
+                img,
+                box.minX + c * cellW + cellW * 0.18,
+                box.minY + r * cellH + cellH * 0.18,
+                cellW * 0.64,
+                cellH * 0.64
+              );
+              const on = stats.ratio > 0.18;
+              if (on) {
+                cells.push([r, c]);
+                density += stats.ratio * 1000;
+              } else {
+                emptyNoise += stats.ratio * 1000;
+              }
+            }
+          }
+          if (!cells.length || cells.length > 9) continue;
+          const normalized = normalizeCells(cells);
+          const connected = isConnected(normalized);
+          const score =
+            density -
+            emptyNoise * 1.8 +
+            cells.length * 42 -
+            (rows * cols - cells.length) * 10 -
+            Math.abs(cellW - cellH) * 18 +
+            (connected ? 180 : -500);
+          if (score > best.score) best = { score, cells: normalized };
+        }
+      }
+      return best.cells;
+    }
+
+    function samplePieceRect(img, x, y, w, h) {
+      const { width, height, data } = img;
+      let count = 0;
+      let hits = 0;
+      for (let yy = Math.max(0, Math.floor(y)); yy < Math.min(height, Math.ceil(y + h)); yy += 2) {
+        for (let xx = Math.max(0, Math.floor(x)); xx < Math.min(width, Math.ceil(x + w)); xx += 2) {
+          const i = (yy * width + xx) * 4;
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+          if (Math.max(r, g) > 110 && b < 135 && Math.abs(r - g) > 16) hits++;
+          count++;
+        }
+      }
+      return { ratio: count ? hits / count : 0 };
+    }
+
+    function isConnected(cells) {
+      const set = new Set(cells.map(([r, c]) => `${r},${c}`));
+      const seen = new Set();
+      const stack = [cells[0]];
+      while (stack.length) {
+        const [r, c] = stack.pop();
+        const key = `${r},${c}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        [[1,0],[-1,0],[0,1],[0,-1]].forEach(([dr, dc]) => {
+          const next = `${r + dr},${c + dc}`;
+          if (set.has(next) && !seen.has(next)) stack.push([r + dr, c + dc]);
+        });
+      }
+      return seen.size === cells.length;
+    }
+
+    document.querySelector("#solve").addEventListener("click", solveAndRender);
+    document.querySelector("#copyMoves").addEventListener("click", copyMoves);
+    document.querySelector("#loadPreset").addEventListener("click", resetPreset);
+    document.querySelector("#clearBoard").addEventListener("click", clearBoard);
+    document.querySelector("#resetPieces").addEventListener("click", resetPieces);
+    document.querySelector("#pickImage").addEventListener("click", () => document.querySelector("#screenshotInput").click());
+    document.querySelector("#screenshotInput").addEventListener("change", event => {
+      const file = event.target.files?.[0];
+      if (file) readScreenshot(file);
+      event.target.value = "";
+    });
+
+    renderAll();
+  </script>
+</body>
+</html>
